@@ -1,10 +1,4 @@
 #!/usr/bin/env python3
-'''
-# Team ID:          1002
-# Theme:            Krishi Drone
-# Author List:      Sathyagith, Rudra, Shavya, Nagendra
-# Purpose:          Real-time infected plant detection for bottom-half blocks
-'''
 
 import rclpy
 from rclpy.node import Node
