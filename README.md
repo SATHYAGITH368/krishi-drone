@@ -96,6 +96,18 @@ The detection pipeline involves several steps, visualized in workflow images:
   - `hardware_workflow.png`: Workflow image.
   - `realtime_infected_plant_detection.py`: ROS node script.
 
+## Differences Between Software and Hardware Implementations
+
+- **Software (Simulation)**:
+  - Processes static images.
+  - Useful for algorithm testing and validation.
+  - Outputs results to a text file.
+
+- **Hardware (Real-Time Detection)**:
+  - Processes live camera feeds.
+  - Runs as a ROS node.
+  - Publishes detection results in real-time.
+
 ## Agricultural Relevance
 
 - Provides early warnings of infection or stress.
