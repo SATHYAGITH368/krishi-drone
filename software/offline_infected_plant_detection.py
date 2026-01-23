@@ -1,12 +1,5 @@
 #!/usr/bin/env python3
-'''
-# Team ID:          1002
-# Theme:            Krishi Drone
-# Author List:      Sathyagith, Rudra, Shavya, Nagendra
-# Filename:         KD_1002_task1a.py
-# Functions:        extract_ground, sort_corners, detect_aruco_markers, warp_image, remove_white_border, divide_blocks, detect_infected_plant, main
-# Global variables: None
-'''
+
 
 import cv2
 import numpy as np
