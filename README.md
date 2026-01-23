@@ -81,6 +81,11 @@ The detection pipeline involves several steps, visualized in workflow images:
   - **Simulation**: `output_task1a.txt`
   - **Hardware (ROS)**: Published as JSON on `/detected_plants`.
 
+## ROS Integration
+
+- **CV Bridge**: Used to convert ROS image messages to OpenCV images.
+- **Subscription**: Listens to the `/image_raw` topic for real-time image data.
+
 ## Folder Structure
 
 ### Simulation (Software)
