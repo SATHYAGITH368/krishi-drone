@@ -267,4 +267,88 @@ Terminal 4:
 ros2 run swift_pico pico_client.py
 ```
 
+
+## Hardware Implementation (Camera Calibration, Arena Setup, Latching Circuit, Arming/Disarming)
+
+### What We Did in Hardware
+1. Calibrated the camera and validated projection stability.
+2. Built and verified arena setup with all mission props.
+3. Implemented a latching circuit (Arduino-based control side) for reliable actuator state holding.
+4. Followed strict arming/disarming safety workflow on real drone.
+5. Ran hardware mission scripts mapped from simulation architecture.
+
+### 1) Camera Calibration
+We calibrated the camera first and saved parameters to:
+
+- `hardware/realtime_infected_plant_detection/camera_calibration.yaml`
+
+Why this was required:
+- Raw lens distortion shifts tray and plant coordinates.
+- Distorted coordinates break detection-to-navigation mapping.
+- Calibration improves geometric consistency for real-time detection and waypoint targeting.
+
+What we validated after calibration:
+- Better tray boundary alignment.
+- More stable plant cell segmentation.
+- Reduced coordinate drift between frames.
+
+### 2) Arena Setup
+Arena setup references:
+
+- `hardware/realtime_infected_plant_detection/arena setup,with latching circuit/KD_task_3a_1002_arena_only.png`
+- `hardware/realtime_infected_plant_detection/arena setup,with latching circuit/KD_task_3a_1002_arena_with_props.png`
+- `hardware/realtime_infected_plant_detection/arena setup,with latching circuit/KD_task_3a_1002_healthy_plant.png`
+- `hardware/realtime_infected_plant_detection/arena setup,with latching circuit/KD_task_3a_1002_infected_plant.png`
+- `hardware/realtime_infected_plant_detection/arena setup,with latching circuit/KD_task_3a_1002_pesticide_prop.png`
+
+What this means in practice:
+- We fixed prop placement so waypoint trajectories remain reproducible.
+- We ensured marker/plant visibility in camera FOV before flight.
+- We verified that mission-critical points (pickup, hover, spray) are reachable safely with configured path clearances.
+
+### 3) Why We Used a Latching Circuit (Arduino Side)
+Circuit reference:
+
+- `hardware/realtime_infected_plant_detection/arena setup,with latching circuit/KD_task_3a_1002_circuit_diagram.png`
+
+Reason:
+- In flight, control pulses can be brief/noisy.
+- A simple momentary trigger can reset unintentionally.
+- We needed actuator state retention (ON/OFF hold) until explicit reset.
+
+Meaning in our mission:
+- Payload/spray trigger remains stable after activation.
+- Prevents accidental toggles during hover/spray.
+- Makes pickup and spray operations deterministic and repeatable.
+
+### 4) Arming/Disarming on Hardware Drone
+Hardware validation references:
+
+- `hardware/realtime_infected_plant_detection/arming and disarming drone/KD_task_3c_1002_checklist_front.png`
+- `hardware/realtime_infected_plant_detection/arming and disarming drone/KD_task_3c_1002_swift_pico.png`
+
+Safety flow we followed:
+1. Start in disarmed state.
+2. Verify checklist (clear area, links, power, props safety).
+3. Arm only after checks pass.
+4. Keep RC outputs bounded during run.
+5. Force disarm on stop/fault.
+
+Why this matters:
+- Prevents unintended motor start.
+- Protects hardware/team during setup and payload handling.
+- Ensures repeatable and safe test cycles.
+
+### 5) Hardware Scripts Used
+- Hover/controller:
+  - `hardware/realtime_infected_plant_detection/hardware waypoint,hovering,mini theme/KD_1002_pico_controller.py`
+- Waypoint service:
+  - `hardware/realtime_infected_plant_detection/hardware waypoint,hovering,mini theme/KD_1002_waypoint_service.py`
+- Action server:
+  - `hardware/realtime_infected_plant_detection/hardware waypoint,hovering,mini theme/KD_1002_pico_server.py`
+- Action client:
+  - `hardware/realtime_infected_plant_detection/hardware waypoint,hovering,mini theme/KD_1002_pico_client.py`
+- Hardware real-time detection:
+  - `hardware/realtime_infected_plant_detection/realtime_infected_plant_detection.py`
+
 ---
