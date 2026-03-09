@@ -1,78 +1,112 @@
 # 🌾 Krishi Drone (KD)
 
-Krishi Drone (KD) is an autonomous farming drone stack built on ROS 2 for:
+Krishi Drone (KD) is a ROS 2 based autonomous farming drone project focused on:
 
-1. Detecting infected plants using computer vision.
-2. Stabilizing and navigating the Swift Pico drone in Gazebo and hardware.
-3. Executing mini-theme mission logic (pickup, hoop traversal, hover/spray, return).
+1. Infected plant detection using vision.
+2. Drone stabilization and waypoint navigation in simulation and hardware.
+3. Mini-theme mission execution (pickup, traversal, hover/spray, return).
 
 ---
 
-## 1) Infected Plant Detection
+## Key Components
 
-### Aim
-Detect infected plants from tray/crop imagery and publish/report infected locations for downstream navigation and spraying.
+1. **Infection Detection**
+   - Identifies abnormal plant health patterns from tray images/camera feeds.
+   - Implemented in both simulation and hardware pipelines.
 
-### Why it matters
-- Early disease detection prevents spread.
-- Enables targeted spraying (lower chemical usage).
-- Reduces manual inspection effort.
+2. **Control System**
+   - PID-based hovering and waypoint tracking.
+   - Action + Service architecture for sequential waypoint missions.
 
-### Pipeline (implemented)
-1. ArUco marker detection
-2. Perspective correction
-3. Tray cropping and border removal
-4. Block segmentation
-5. Plant-wise HSV analysis
-6. Most infected plant selection
+---
 
-### Files (Software vs Hardware)
+## Why Infected Plant Detection Matters
 
-#### Software (simulation/offline)
+Early infection detection is important for:
+
+- Preventing disease spread to healthy plants.
+- Reducing unnecessary pesticide usage.
+- Improving intervention speed and consistency.
+- Lowering manual monitoring effort.
+
+### Common Indicators of Infection
+
+- **Yellowing leaves**: nutrient stress or disease.
+- **Browning/necrosis**: cell damage and progressive infection.
+- **Uneven growth**: stress, overwatering, or localized damage.
+
+---
+
+## Detection Methodology (Restored + Implemented)
+
+### 1. ArUco Marker Detection
+- Purpose: spatial reference and tray alignment.
+- Approach: detect marker corners and standardize ordering.
+
+### 2. Perspective Transformation
+- Purpose: convert skewed camera view to top-down aligned view.
+- Approach: `cv2.getPerspectiveTransform` + `cv2.warpPerspective`.
+
+### 3. Tray Cropping and Border Removal
+- Purpose: isolate plant region and remove irrelevant frame artifacts.
+- Approach: HSV thresholding + morphology cleanup.
+
+### 4. Block Segmentation
+- Purpose: split tray into analyzable plant cells.
+- Approach: geometric segmentation and orientation normalization.
+
+### 5. Plant-wise HSV Analysis
+- Purpose: quantify infection ratio per plant region.
+- Approach: color-space thresholding and infected-area ratio measurement.
+
+### 6. Most Infected Plant Selection
+- Purpose: prioritize actionable targets for spraying.
+- Output:
+  - Simulation: file output / structured text.
+  - Hardware: ROS message/JSON publish for mission stack.
+
+---
+
+## Code Map (Software vs Hardware)
+
+### Infection Detection
+
+**Software (simulation/offline)**
 - `software/offline_infected_plant_detection.py`
 - `software/simulation_workflow.png`
 
-#### Hardware (real-time ROS)
+**Hardware (real-time)**
 - `hardware/realtime_infected_plant_detection/realtime_infected_plant_detection.py`
 - `hardware/realtime_infected_plant_detection/hardware_workflow.png`
 - `hardware/realtime_infected_plant_detection/camera_calibration.yaml`
 
 ---
 
-## 2) Control System — Task 1C (Hovering PID/LQR)
+## Task 1C — Control System (Hovering PID)
 
 ### Aim 🎯
-Develop a controller to stabilize Swift Pico at setpoint `[-7, 0, 20]` in Gazebo.
+Stabilize Swift Pico at setpoint `[-7, 0, 20]` in Gazebo with bounded error.
 
-### Prerequisites 📋
-- Task 0, Task 1A, Task 1B completed
-- ROS 2 basics (pub/sub, nodes)
-- Python or C++
-- Control basics (PID/LQR)
+### What we implemented in code
 
-### Controller choice
-- PID or LQR are both valid.
-- Our implementation used PID for primary simulation control.
+**Main file (simulation)**
+- `software/hovering-pid gazebo sim/KD_1002_pico_controller.py`
 
-### What we implemented (important code points)
+**Main file (hardware pipeline copy)**
+- `hardware/realtime_infected_plant_detection/hardware waypoint,hovering,mini theme/KD_1002_pico_controller.py`
 
-#### Main hover controller (simulation)
-- File: `software/hovering-pid gazebo sim/KD_1002_pico_controller.py`
-- Node: `pico_controller`
-- Setpoint: `[-7, 0, 20]`
-- Topics:
-  - Sub: `/whycon/poses`
-  - Sub: `/throttle_pid`, `/pitch_pid`, `/roll_pid`
-  - Pub: `/drone_command`, `/pid_error`
-- Safety:
-  - Arm/disarm sequence implemented
-  - RC saturation in `[1000, 2000]`
-- Strategy:
-  - Throttle first
-  - Pitch enabled after altitude settles
-  - Roll enabled after pitch settles
+### Controller approach
 
-### Installation / setup for new users
+- ROS2 node publishes `/drone_command` and `/pid_error`.
+- Subscribes to WhyCon pose and PID tuning topics.
+- Uses staged enable logic to improve stability:
+  - throttle control active first,
+  - pitch activated after altitude error reduces,
+  - roll activated after pitch axis gets closer.
+- RC command saturation applied (`1000` to `2000`) for safe output limits.
+- Arm/disarm sequence included for safer startup.
+
+### Setup for new users
 
 ```bash
 cd ~/pico_ws
@@ -81,7 +115,7 @@ source install/setup.bash
 sudo apt install ros-humble-plotjuggler-ros
 ```
 
-If build errors occur:
+If dependency issues appear:
 
 ```bash
 sudo apt install ros-humble-camera-info-manager
@@ -97,21 +131,16 @@ echo 'export GZ_SIM_RESOURCE_PATH="$HOME/pico_ws/src/swift_pico_description/mode
 source ~/.bashrc
 ```
 
-### Run Task 1C (simulation)
+### Run (Task 1C)
 
 Terminal 1:
 ```bash
 ros2 launch swift_pico task_1c.launch.py
 ```
 
-Terminal 2 (PID):
+Terminal 2:
 ```bash
 ros2 run swift_pico pico_controller_PID.py
-```
-
-or (LQR):
-```bash
-ros2 run swift_pico pico_controller_LQR.py
 ```
 
 Optional tuning GUI:
@@ -119,77 +148,50 @@ Optional tuning GUI:
 ros2 launch pid_tune pid_tune_drone.launch.py node_name:=button_ui
 ```
 
-Optional plotting:
+Optional plots:
 ```bash
 ros2 run plotjuggler plotjuggler
 ```
 
-### Scoring targets
-- Reach setpoint `[-7, 0, 20]`
-- Maintain error within `±0.4` (x,y,z)
-- Hold for at least 10 seconds
-- Finish inside 60 seconds (faster is better)
-
-### Submission artifacts (Task 1C)
-- Controller file renamed: `KD_<team_id>_pico_controller.py/cpp`
-- ROS bag files:
-  - `task_1c_0.db3`
-  - `metadata.yaml`
-
-Zip format:
-```bash
-zip -r KD_<team_id>_task_1c.zip KD_<team_id>_pico_controller.py task_1c_0.db3 metadata.yaml
-```
-
 ---
 
-## 3) Waypoint Navigation — Task 2A
+## Task 2A — Waypoint Navigation (Action + Service)
 
 ### Aim 🎯
-Navigate Swift Pico through predefined waypoints in Gazebo using ROS 2 Action + Service architecture.
+Navigate Swift Pico through task waypoints using custom ROS 2 Action and Service workflow.
 
-### Core requirement
-- Reach all specified waypoints in sequence
-- Hold each waypoint within `±0.4` for at least 2 seconds
-- Complete mission within 180 seconds
+### What we implemented in code
 
-### Architecture implemented
-
-1. **Waypoint Service** provides waypoint list.
-2. **Action Client** requests waypoints and sends goals sequentially.
-3. **Action Server** executes navigation + PID control and publishes feedback/result.
-
-### Files (simulation)
+**Simulation files**
 - `software/waypoint navigation-simulation/KD_1002_waypoint_service.py`
-- `software/waypoint navigation-simulation/KD_1002_pico_client.py`
 - `software/waypoint navigation-simulation/KD_1002_pico_server.py`
-- `software/waypoint navigation-simulation/KD_1002_rqt_graph.png`
+- `software/waypoint navigation-simulation/KD_1002_pico_client.py`
 
-### Files (hardware)
+**Hardware files**
 - `hardware/realtime_infected_plant_detection/hardware waypoint,hovering,mini theme/KD_1002_waypoint_service.py`
-- `hardware/realtime_infected_plant_detection/hardware waypoint,hovering,mini theme/KD_1002_pico_client.py`
 - `hardware/realtime_infected_plant_detection/hardware waypoint,hovering,mini theme/KD_1002_pico_server.py`
+- `hardware/realtime_infected_plant_detection/hardware waypoint,hovering,mini theme/KD_1002_pico_client.py`
 
-### Important implementation notes from code
-- Action server receives `NavToWaypoint` goals.
-- Service provides waypoint array (`GetWaypoints`).
-- Yaw orientation taken from `/rotors/odometry`.
-- PID loop runs with bounded RC output.
-- Stabilization timer at each waypoint before goal success.
+### Architecture used
 
-### Why we used filtering for WhyCon jitter
-In waypoint server code, we observed noisy/jittery WhyCon pose, causing unstable derivatives and command spikes. To improve control smoothness:
+1. **Waypoint Service** returns predefined waypoint sequence.
+2. **Action Client** requests waypoints and sends goals one-by-one.
+3. **Action Server** executes each goal, publishes feedback, and reports completion after stabilization.
 
-- Implemented **Exponential Moving Average** filter:
-  - `filtered = alpha * raw + (1 - alpha) * filtered_prev`
+### Important control improvements from our code
+
+- **Exponential moving average filter for WhyCon jitter**:
+  - `filtered = alpha*raw + (1-alpha)*prev_filtered`
   - `alpha = 0.25`
-- This reduced noise while preserving responsiveness.
-- Implemented in:
-  - `software/waypoint navigation-simulation/KD_1002_pico_server.py`
-  - `software/mini task run -waypoint navigation/KD_1002_pico_server.py`
-  - `hardware/.../KD_1002_pico_server.py`
+- Why used:
+  - raw WhyCon positions were jittery,
+  - unfiltered derivative caused spikes,
+  - filter made control smoother near stabilization zone.
+- Added **derivative smoothing** in mini-task server.
+- Added **ramp-to-target behavior** for smoother transitions.
+- Added integral clamping on lateral axes to reduce windup.
 
-### Run Task 2A
+### Run (Task 2A)
 
 Terminal 1:
 ```bash
@@ -211,45 +213,39 @@ Terminal 4:
 ros2 run swift_pico pico_client.py
 ```
 
-Record bag:
-```bash
-ros2 bag record -o task_2a /whycon/poses
-```
-
-### Submission artifacts (Task 2A)
-- `KD_<team_id>_pico_client.py/cpp`
-- `KD_<team_id>_pico_server.py/cpp`
-- `KD_<team_id>_waypoint_service.py/cpp`
-- `KD_<team_id>_rqt_graph.png`
-- `task_2a_0.db3`
-- `metadata.yaml`
-
 ---
 
-## 4) Mini Theme Run — Task 2B
+## Task 2B — Mini Theme Run (Simulation Mission)
 
 ### Aim 🎯
-Run full mission: detect infected plants, collect pesticide, pass hoops, hover/spray infected plants, and return home.
+Execute mission pipeline:
 
-### Mission blocks implemented
-1. Ground → pesticide station
-2. Hoops traversal transitions
-3. Block-wise infected plant hover
-4. Spray (descent + hold)
-5. Return to ground station
+1. Detect infected plants.
+2. Navigate to pesticide station and pickup point.
+3. Traverse through hoop routes.
+4. Hover and spray at infected plant points.
+5. Return to ground station.
 
-### Files (simulation mini run)
+### What we implemented in code
+
+**Simulation files**
 - `software/mini task run -waypoint navigation/KD_1002_waypoint_service.py`
 - `software/mini task run -waypoint navigation/KD_1002_pico_server.py`
 - `software/mini task run -waypoint navigation/KD_1002_pico_client.py`
-- `software/mini task run -waypoint navigation/KD_1002_rqt_graph.png`
 
-### Files (hardware mini run)
+**Hardware-mapped files**
 - `hardware/realtime_infected_plant_detection/hardware waypoint,hovering,mini theme/KD_1002_waypoint_service.py`
 - `hardware/realtime_infected_plant_detection/hardware waypoint,hovering,mini theme/KD_1002_pico_server.py`
 - `hardware/realtime_infected_plant_detection/hardware waypoint,hovering,mini theme/KD_1002_pico_client.py`
 
-### Run Task 2B
+### Execution flow used
+
+1. Waypoint service provides mission waypoint set.
+2. Client triggers sequential goals.
+3. Server stabilizes at each target and sends result.
+4. Mission logic handles pickup-hover-spray-return segments.
+
+### Run (Task 2B)
 
 Terminal 1:
 ```bash
@@ -271,53 +267,4 @@ Terminal 4:
 ros2 run swift_pico pico_client.py
 ```
 
-Record bag:
-```bash
-ros2 bag record -o task_2b /whycon/poses
-```
-
-### Submission artifacts (Task 2B)
-- `KD_<team_id>_pico_client.py/cpp`
-- `KD_<team_id>_pico_server.py/cpp`
-- `KD_<team_id>_waypoint_service.py/cpp`
-- `KD_<team_id>_rqt_graph.png`
-- `task_2b_0.db3`
-- `metadata.yaml`
-
 ---
-
-## 5) Repository Map
-
-- `software/`
-  - `offline_infected_plant_detection.py`
-  - `hovering-pid gazebo sim/`
-  - `waypoint navigation-simulation/`
-  - `mini task run -waypoint navigation/`
-- `hardware/realtime_infected_plant_detection/`
-  - `realtime_infected_plant_detection.py`
-  - `hardware waypoint,hovering,mini theme/`
-  - arena and circuit references
-
----
-
-## 6) What a New User Should Do First
-
-1. Complete ROS 2 + Swift Pico workspace setup (Task 1A baseline).
-2. Build workspace:
-   ```bash
-   cd ~/pico_ws
-   colcon build
-   source install/setup.bash
-   ```
-3. Run Task 1C first and stabilize hover.
-4. Move to Task 2A (service + action flow).
-5. Move to Task 2B (full mini-theme mission).
-6. Record rosbag + rqt graph + unlisted YouTube demo.
-
----
-
-## 7) Team
-
-- Team ID: `1002`
-- Authors: `sathyagith`, `rudra`, `shavya`, `nagendra`
-
